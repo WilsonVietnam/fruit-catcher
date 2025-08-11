@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>Fruit Catcher 🍓🍌</title>
+<style>
+  :root{
+    --bg:#e9f3ff;
+    --ink:#1f2d3d;
+    --accent:#6c9cff;
+    --good:#25b05a;
+    --bad:#ff5a5f;
+    --panel: #ffffff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial}
+  .wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px}
+  .title{
+    font-weight:800; letter-spacing:.3px; display:flex; gap:10px; align-items:center;
+    background:linear-gradient(180deg,#fff, #f5f9ff);
+    color:var(--ink); padding:8px 14px; border-radius:14px; box-shadow:0 6px 20px rgba(60,100,200,.12);
+  }
+  .hud{
+    display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center
+  }
+  .badge{
+    background:var(--panel); padding:8px 12px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.08); font-weight:700
+  }
+  .btn{
+    appearance:none; border:0; background:var(--accent); color:white; padding:10px 14px; border-radius:12px;
+    font-weight:800; box-shadow:0 6px 18px rgba(60,120,255,.35); cursor:pointer; transition:.2s transform;
+  }
+  .btn:active{transform:translateY(1px)}
+  canvas{width:min(100vw,900px); height:min(68vh,540px); max-height:70vh; background:#bfe3ff; border-radius:18px; box-shadow:0 12px 36px rgba(50,80,160,.25)}
+  .bar{display:flex; gap:8px; align-items:center}
+  .mute{background:#f1f5ff; color:#3c4b6e}
+  .pill{padding:6px 10px; border-radius:999px; background:#eef4ff; font-weight:700}
+  .footer{opacity:.7; font-size:12px}
+  /* Mobile controls */
+  .pad{
+    display:none; gap:12px; margin-top:8px
+  }
+  .pad .btn{min-width:120px}
+  @media (max-width:720px){
+    .pad{display:flex}
+  }
+
+  /* Overlay */
+  .overlay{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:20px;
+    background:rgba(23,41,72,.45); backdrop-filter: blur(4px); transition:.25s; z-index:10;
+  }
+  .card{
+    max-width:680px; width:min(92vw,720px); background:var(--panel); border-radius:18px; padding:18px 18px 14px;
+    box-shadow:0 16px 44px rgba(22,40,120,.25)
+  }
+  .card h2{margin:6px 0 8px}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  @media (max-width:560px){ .grid{grid-template-columns:1fr} }
+  ul{margin:.5em 0 0 1em}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">🍓🍌 <span style="font-size:20px">Fruit Catcher</span> · <span class="pill">cho bé 5+</span></div>
+    <div class="hud">
+      <div class="badge">Điểm: <span id="score">0</span></div>
+      <div class="badge">Màn: <span id="level">1</span></div>
+      <div class="badge">Mục tiêu: <span id="target">10</span></div>
+      <div class="badge">Mạng ❤: <span id="lives">3</span></div>
+      <div class="badge">Kỷ lục: <span id="best">0</span></div>
+      <button id="pauseBtn" class="btn">⏸️ Tạm dừng</button>
+      <button id="muteBtn" class="btn mute">🔈 Âm thanh</button>
+    </div>
+    <canvas id="game" width="900" height="540" aria-label="Fruit Catcher game canvas"></canvas>
+    <div class="pad">
+      <button class="btn" id="leftBtn">⬅️ Trái</button>
+      <button class="btn" id="rightBtn">Phải ➡️</button>
+    </div>
+    <div class="footer">Mẹo: Dùng phím <b>← →</b> hoặc <b>A/D</b>. Trên điện thoại: chạm kéo, hoặc bấm nút Trái/Phải.</div>
+  </div>
+
+  <!-- Overlay: Start / Level Up / Game Over -->
+  <div class="overlay" id="overlay">
+    <div class="card">
+      <h2 id="ovTitle">Fruit Catcher 🍓🍌</h2>
+      <div class="grid">
+        <div>
+          <p><b>Cách chơi</b></p>
+          <ul>
+            <li>Điều khiển <b>giỏ</b> để hứng trái cây rơi xuống.</li>
+            <li>Tránh bom 💣 (bị trừ mạng và điểm).</li>
+            <li>Hứng đủ mục tiêu để <b>qua màn</b>, tốc độ sẽ tăng.</li>
+          </ul>
+        </div>
+        <div>
+          <p><b>Điều khiển</b></p>
+          <ul>
+            <li>Phím: ← → hoặc A / D, hoặc chuột & chạm kéo.</li>
+            <li>Space: Bắt đầu / Tiếp tục · P: Tạm dừng · M: Bật/Tắt âm.</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap">
+        <button class="btn" id="startBtn">▶️ Bắt đầu</button>
+        <button class="btn" id="restartBtn" style="display:none">🔄 Chơi lại</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ====== Helpers ======
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  // scale for crisp rendering on HiDPI
+  function resize() {
+    const w = 900, h = 540;
+    canvas.width = w * DPR; canvas.height = h * DPR;
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // HUD
+  const $score = document.getElementById('score');
+  const $level = document.getElementById('level');
+  const $target = document.getElementById('target');
+  const $lives = document.getElementById('lives');
+  const $best = document.getElementById('best');
+  const $pauseBtn = document.getElementById('pauseBtn');
+  const $muteBtn = document.getElementById('muteBtn');
+  const overlay = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ovTitle');
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+
+  // Controls
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+
+  // ====== Sound (WebAudio synth – no external files) ======
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const actx = new AudioCtx();
+  let muted = false;
+
+  function beep({freq=880, dur=0.12, type='sine', vol=0.15}) {
+    if (muted) return;
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.value = vol;
+    osc.connect(gain).connect(actx.destination);
+    osc.start(t0);
+    // small envelope
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.stop(t0 + dur + 0.02);
+  }
+  const sfx = {
+    ting(){ // catch good
+      beep({freq:1200, dur:0.12, type:'triangle', vol:0.25});
+      setTimeout(()=>beep({freq:1600, dur:0.06, type:'triangle', vol:0.22}), 60);
+    },
+    oops(){ // hit bomb
+      beep({freq:180, dur:0.18, type:'sawtooth', vol:0.22});
+      setTimeout(()=>beep({freq:120, dur:0.18, type:'square', vol:0.18}), 80);
+    },
+    level(){ beep({freq:900, dur:0.2, type:'square', vol:0.22}); setTimeout(()=>beep({freq:1300, dur:0.2}), 100)},
+    gameOver(){ beep({freq:220, dur:0.3, type:'sawtooth', vol:0.25}); setTimeout(()=>beep({freq:110, dur:0.35, type:'square', vol:0.22}), 220)}
+  };
+
+  // ====== Game State ======
+  const W = 900, H = 540;
+  const fruits = ["🍓","🍌","🍎","🍇","🍉","🍊","🍒"];
+  const BOMB = "💣";
+  let state = {
+    running:false, paused:false,
+    score:0, level:1, target:10, caughtThisLevel:0, lives:3,
+    basket:{x:W/2, y:H-60, w:110, h:34, vx:0},
+    drops:[],
+    speedBase: 2.4,
+    spawnEvery: 60, // frames
+    frame:0
+  };
+  const bestKey = 'fruitcatcher_best';
+  $best.textContent = Number(localStorage.getItem(bestKey)||0);
+
+  // ====== Input ======
+  const keys = new Set();
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { toggleRun(); e.preventDefault(); return; }
+    if (e.key.toLowerCase() === 'p') { togglePause(); }
+    if (e.key.toLowerCase() === 'm') { toggleMute(); }
+    keys.add(e.key.toLowerCase());
+  });
+  window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+
+  // mouse / touch drag
+  let dragging = false;
+  canvas.addEventListener('pointerdown', (e)=>{ dragging=true; moveToPointer(e); canvas.setPointerCapture(e.pointerId) });
+  canvas.addEventListener('pointermove', (e)=>{ if(dragging) moveToPointer(e) });
+  canvas.addEventListener('pointerup', ()=> dragging=false);
+  function moveToPointer(e){
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width * W;
+    state.basket.x = Math.max(60, Math.min(W-60, px));
+  }
+
+  // mobile buttons
+  let leftHeld=false, rightHeld=false;
+  leftBtn.addEventListener('pointerdown', ()=>leftHeld=true);
+  leftBtn.addEventListener('pointerup', ()=>leftHeld=false);
+  rightBtn.addEventListener('pointerdown', ()=>rightHeld=true);
+  rightBtn.addEventListener('pointerup', ()=>rightHeld=false);
+
+  // Buttons
+  startBtn.onclick = () => { overlay.style.display='none'; startGame(); };
+  restartBtn.onclick = () => { overlay.style.display='none'; startGame(); };
+  $pauseBtn.onclick = togglePause;
+  $muteBtn.onclick = toggleMute;
+
+  function toggleMute(){
+    muted = !muted;
+    $muteBtn.textContent = muted ? "🔇 Tắt âm" : "🔈 Âm thanh";
+  }
+
+  function toggleRun(){
+    if(!state.running){ overlay.style.display='none'; startGame(); return; }
+    if(state.paused){ togglePause(); }
+  }
+  function togglePause(){
+    if(!state.running) return;
+    state.paused = !state.paused;
+    $pauseBtn.textContent = state.paused ? "▶️ Tiếp tục" : "⏸️ Tạm dừng";
+    if(!state.paused) loop();
+  }
+
+  // ====== Spawning ======
+  function spawnDrop(){
+    const isBomb = Math.random() < Math.min(0.08 + state.level*0.02, 0.28);
+    const size = 32 + Math.random()*8;
+    state.drops.push({
+      x: 40 + Math.random()*(W-80),
+      y: -40,
+      vy: state.speedBase + Math.random()*state.level*0.5,
+      char: isBomb ? BOMB : fruits[Math.floor(Math.random()*fruits.length)],
+      size,
+      caught:false
+    });
+  }
+
+  // ====== Game Flow ======
+  function startGame(){
+    state.running = true; state.paused = false;
+    state.score = 0; state.level = 1; state.target = 10; state.caughtThisLevel=0; state.lives=3;
+    state.basket = {x:W/2, y:H-60, w:110, h:34, vx:0};
+    state.drops = []; state.frame=0; state.speedBase = 2.4; state.spawnEvery = 60;
+    updateHUD();
+    loop();
+  }
+
+  function levelUp(){
+    state.level++;
+    state.caughtThisLevel=0;
+    state.target = Math.min(10 + (state.level-1)*4, 40);
+    state.speedBase += 0.4;
+    state.spawnEvery = Math.max(28, state.spawnEvery-4);
+    sfx.level();
+    // show small toast
+    toast(`Lên màn ${state.level}! 🎉 Tốc độ tăng.`);
+  }
+
+  function gameOver(){
+    state.running=false;
+    sfx.gameOver();
+    const best = Math.max(Number(localStorage.getItem(bestKey)||0), state.score);
+    localStorage.setItem(bestKey, best);
+    $best.textContent = best;
+    ovTitle.textContent = `Game Over • Điểm: ${state.score}`;
+    restartBtn.style.display = 'inline-flex';
+    startBtn.style.display = 'none';
+    overlay.style.display = 'flex';
+  }
+
+  function updateHUD(){
+    $score.textContent = state.score;
+    $level.textContent = state.level;
+    $target.textContent = Math.max(0, state.target - state.caughtThisLevel);
+    $lives.textContent = state.lives;
+  }
+
+  // ====== Drawing ======
+  function drawBackground(){
+    // Sky gradient
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#c7e6ff'); g.addColorStop(.6,'#bfe3ff'); g.addColorStop(1,'#a9dbff');
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+    // Parallax hills
+    const t = state.frame/180;
+    drawHills('#8ac6ff', 40, 1.5, t*0.6);
+    drawHills('#6cb5ff', 70, 2.2, t*0.9);
+    // Ground
+    ctx.fillStyle = '#7ed957';
+    ctx.fillRect(0,H-70,W,70);
+    // Stripes
+    ctx.fillStyle='rgba(0,0,0,.06)';
+    for(let x=0; x<W; x+=26){
+      ctx.fillRect(x, H-70, 12, 70);
+    }
+  }
+  function drawHills(color, h, speed, offset){
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, H-70);
+    for(let x=0;x<=W;x++){
+      const y = H-70 - (Math.sin((x/120)+offset*speed)*h + h);
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(W,H-70); ctx.closePath(); ctx.fill();
+  }
+  function drawBasket(){
+    const b = state.basket;
+    // base
+    ctx.fillStyle = '#c97a36';
+    roundRect(b.x - b.w/2, b.y, b.w, b.h, 12);
+    ctx.fill();
+    // rim
+    ctx.fillStyle = '#a96121';
+    roundRect(b.x - b.w/2, b.y-10, b.w, 16, 10);
+    ctx.fill();
+    // stripes
+    ctx.fillStyle='rgba(255,255,255,.18)';
+    for(let i= -b.w/2+10; i<b.w/2; i+=16){
+      ctx.fillRect(b.x + i, b.y+4, 6, b.h-8);
+    }
+  }
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+  function drawDrops(){
+    for(const d of state.drops){
+      ctx.font = `${d.size}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.save();
+      ctx.shadowColor='rgba(0,0,0,.15)'; ctx.shadowBlur=6; ctx.shadowOffsetY=2;
+      ctx.fillText(d.char, d.x, d.y);
+      ctx.restore();
+    }
+  }
+
+  // ====== Loop ======
+  let raf;
+  function loop(){
+    if(!state.running || state.paused) return;
+    raf = requestAnimationFrame(loop);
+    update();
+    render();
+  }
+
+  function update(){
+    state.frame++;
+
+    // Controls
+    const b = state.basket;
+    const speed = 8 + state.level*0.6;
+    const left = keys.has('arrowleft') || keys.has('a') || leftHeld;
+    const right = keys.has('arrowright') || keys.has('d') || rightHeld;
+    if(left && !right) b.x -= speed;
+    if(right && !left) b.x += speed;
+    b.x = Math.max(60, Math.min(W-60, b.x));
+
+    // Spawn
+    if(state.frame % state.spawnEvery === 0){
+      spawnDrop();
+    }
+
+    // Move drops
+    for(const d of state.drops){
+      d.y += d.vy;
+    }
+
+    // Collisions
+    const caught = [];
+    for(const d of state.drops){
+      if(d.caught) continue;
+      // basket rect
+      const rx = b.x - b.w/2, ry = b.y, rw = b.w, rh = b.h+10;
+      if(d.y > ry && d.y < ry+rh && d.x > rx && d.x < rx+rw){
+        d.caught = true;
+        if(d.char === BOMB){
+          state.lives--; state.score = Math.max(0, state.score-2);
+          sfx.oops();
+          shake(6);
+          if(state.lives<=0){ updateHUD(); gameOver(); return; }
+        }else{
+          state.score++; state.caughtThisLevel++;
+          sfx.ting();
+          // small reward growth
+          popText("+1", d.x, d.y, "#25b05a");
+          if(state.caughtThisLevel >= state.target) levelUp();
+        }
+        updateHUD();
+        caught.push(d);
+      }
+    }
+    // remove caught & fallen
+    state.drops = state.drops.filter(d => !caught.includes(d) && d.y < H+50);
+  }
+
+  function render(){
+    drawBackground();
+    drawDrops();
+    drawBasket();
+  }
+
+  // ====== Micro UI effects ======
+  let shakeT=0, shakeAmp=0;
+  function shake(a=5){
+    shakeT=8; shakeAmp=a;
+  }
+  const originalSetTransform = ctx.setTransform.bind(ctx);
+  (function patchRAF(){
+    const _raf = window.requestAnimationFrame;
+    window.requestAnimationFrame = (fn)=>_raf((t)=>{
+      if(shakeT>0){
+        shakeT--;
+        const dx = (Math.random()-0.5)*shakeAmp, dy=(Math.random()-0.5)*shakeAmp;
+        ctx.setTransform(DPR,0,0,DPR,dx,dy);
+        fn(t);
+        ctx.setTransform(DPR,0,0,DPR,0,0);
+      }else{
+        fn(t);
+      }
+    });
+  })();
+
+  // floating text
+  const floats=[];
+  function popText(text,x,y,color="#1f2d3d"){
+    floats.push({text,x,y,life:36,color});
+  }
+  const _render = render;
+  render = function(){
+    drawBackground();
+    drawDrops();
+    drawBasket();
+
+    for(const f of floats){
+      ctx.globalAlpha = Math.max(0, f.life/36);
+      ctx.fillStyle = f.color;
+      ctx.font = 'bold 22px ui-sans-serif, system-ui';
+      ctx.fillText(f.text, f.x, f.y - (36-f.life));
+      ctx.globalAlpha = 1;
+      f.life--;
+    }
+    for(let i=floats.length-1;i>=0;i--) if(floats[i].life<=0) floats.splice(i,1);
+  }
+
+  // ====== Overlay initial text ======
+  ovTitle.textContent = "Fruit Catcher 🍓🍌";
+  startBtn.style.display = 'inline-flex';
+  restartBtn.style.display = 'none';
+
+  // Wake audio context on first gesture (needed on mobile)
+  window.addEventListener('pointerdown', () => { if(actx.state==="suspended") actx.resume(); }, {once:true});
+
+})();
+</script>
+</body>
+</html>
